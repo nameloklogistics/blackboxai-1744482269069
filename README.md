@@ -1,118 +1,202 @@
+# Logistics Marketplace on Stellar Blockchain
 
-Built by https://www.blackbox.ai
-
----
-
-```markdown
-# Logistics Blockchain
-
-## Project Overview
-
-Logistics Blockchain is a blockchain-based platform designed to streamline and enhance logistics operations. This platform leverages the capabilities of blockchain technology to provide secure, transparent, and tamper-proof logistics services, improving traceability and efficiency.
-
-## Installation
-
-To get started with Logistics Blockchain, clone the repository and install the necessary dependencies.
-
-```bash
-git clone https://github.com/yourusername/logistics-blockchain.git
-cd logistics-blockchain
-npm install
-```
-
-### Using Docker Compose
-
-Alternatively, you can run the project using Docker:
-
-1. Ensure you have Docker and Docker Compose installed on your machine.
-2. Build and start the services using the following command:
-
-```bash
-docker-compose up --build
-```
-
-This will start both the API and the MongoDB service.
-
-## Usage
-
-To start the server, use the following command:
-
-```bash
-npm start
-```
-
-For development, you can use:
-
-```bash
-npm run dev
-```
-
-This command uses `nodemon` to automatically restart the server when file changes are detected.
-
-### Accessing the API
-
-Once the server is running, you can access the API at `http://localhost:3000`.
+A decentralized two-sided marketplace for logistics and supply chain services built on the Stellar blockchain network. This platform facilitates interactions between freight forwarders, customs brokers, consignees, and shippers.
 
 ## Features
 
-- Blockchain-based architecture for logistics operations.
-- Integration with Hyperledger Fabric for secure transaction processing.
-- RESTful API endpoints for interacting with logistics data.
-- CORS enabled for cross-origin requests.
-- Logging using Winston for better debugging and information tracking.
-- Automated testing with Jest.
+### User Profiles
 
-## Dependencies
+#### Service Providers (Freight Forwarders)
+- Detailed company information
+- Contact person details
+- Infrastructure management:
+  - Major sea ports
+  - International airports
+  - Inland container terminals
+- Business certifications (IATA, FIATA)
+- Customs broker licenses
 
-The project has the following dependencies defined in the `package.json` file:
+#### Service Buyers (Shippers)
+- Company information
+- Contact details
+- Business type (Importer/Exporter)
+- Trade documentation (Import/Export codes)
 
-- `express`: Web framework for Node.js.
-- `fabric-network`: Hyperledger Fabric SDK for Node.js.
-- `fabric-ca-client`: Client for Hyperledger Fabric Certificate Authority.
-- `cors`: Package to enable CORS.
-- `dotenv`: Module to load environment variables from a `.env` file.
-- `winston`: Logger for Node.js.
-- `ws`: WebSocket library.
-- `jsonwebtoken`: Implementation of JSON Web Token (JWT) for secure API authentication.
-- `mongoose`: MongoDB object modeling tool.
+### Service Categories
 
-For development purposes, the following devDependencies are included:
+1. Import Services
+   - FCL Import
+   - LCL Import
+   - Air Import
+   - Customs Clearance
+   - Door Delivery
 
-- `nodemon`: Tool that helps develop Node.js applications by automatically restarting the server.
-- `jest`: JavaScript testing framework.
-- `eslint`: Tool for identifying and fixing problems in JavaScript code.
-- `prettier`: Opinionated code formatter.
-- `supertest`: SuperAgent driven library for testing HTTP servers.
+2. Export Services
+   - FCL Export
+   - LCL Export
+   - Air Export
+   - Export Documentation
+   - Pickup Service
 
-## Project Structure
+3. Transit Services
+   - Land Transit
+   - Rail Transit
+   - Multimodal Transit
+   - Transit Documentation
 
-The project is structured as follows:
+4. Transshipment Services
+   - Sea-Sea Transshipment
+   - Air-Air Transshipment
+   - Sea-Air Transshipment
+   - Air-Sea Transshipment
 
+## Technical Architecture
+
+### Smart Contracts
+- Token Contract: Manages the logistics marketplace token (LMT)
+- Marketplace Contract: Handles service listings, bookings, and payments
+
+### Core Components
+- Stellar Network Integration
+- Business Logic Services
+- RESTful API Layer
+
+## API Endpoints
+
+### Profile Management
 ```
-logistics-blockchain
-├── api
-│   ├── server.js           # Main entry point for the API server
-│   └── ...                 # Other API-related files and routes
-├── scripts
-│   ├── initialize_all.js    # Script to initialize the application data
-│   └── ...                  # Other helper scripts
-├── config
-│   ├── config.js           # Configuration settings
-│   └── ...                 # Other configuration files
-├── tests
-│   ├── ...                 # Test cases and configurations
-├── .env                    # Environment variable file
-├── .gitignore              # Ignored files and directories
-├── docker-compose.yml      # Docker Compose configuration
-├── package.json            # Dependencies and scripts
-├── package-lock.json       # Lock file for installed dependencies
+POST   /api/v1/profiles/providers          # Create service provider profile
+PUT    /api/v1/profiles/providers/:id      # Update provider profile
+POST   /api/v1/profiles/providers/:id/ports      # Add port
+POST   /api/v1/profiles/providers/:id/airports   # Add airport
+POST   /api/v1/profiles/providers/:id/terminals  # Add terminal
+
+POST   /api/v1/profiles/buyers             # Create service buyer profile
+PUT    /api/v1/profiles/buyers/:id         # Update buyer profile
 ```
+
+### Service Management
+```
+# Import Services
+POST   /api/v1/services/import            # Create import service
+GET    /api/v1/services/import            # List import services
+GET    /api/v1/services/import/subcategories    # List subcategories
+GET    /api/v1/services/import/items/:subcategory  # List service items
+
+# Export Services
+POST   /api/v1/services/export            # Create export service
+GET    /api/v1/services/export            # List export services
+GET    /api/v1/services/export/subcategories    # List subcategories
+GET    /api/v1/services/export/items/:subcategory  # List service items
+
+# Transit Services
+POST   /api/v1/services/transit           # Create transit service
+GET    /api/v1/services/transit           # List transit services
+GET    /api/v1/services/transit/subcategories   # List subcategories
+GET    /api/v1/services/transit/items/:subcategory # List service items
+
+# Transshipment Services
+POST   /api/v1/services/transshipment     # Create transshipment service
+GET    /api/v1/services/transshipment     # List transshipment services
+GET    /api/v1/services/transshipment/subcategories  # List subcategories
+GET    /api/v1/services/transshipment/items/:subcategory  # List service items
+```
+
+### Booking and Tracking
+```
+POST   /api/v1/bookings                   # Create booking
+POST   /api/v1/bookings/:id/payment       # Process payment
+POST   /api/v1/bookings/:id/status        # Update status
+
+POST   /api/v1/tracking/events            # Add tracking event
+GET    /api/v1/tracking/:booking_id       # Get tracking history
+POST   /api/v1/tracking/route/optimal     # Get optimal route
+```
+
+## Prerequisites
+
+- Go 1.21 or higher
+- Stellar Network account
+- Soroban CLI
+- Environment variables setup
+
+## Environment Variables
+
+```bash
+export PORT=8080
+export ISSUER_KEY=<your-stellar-issuer-key>
+export CONTRACT_ID=<deployed-contract-id>
+```
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd logistics-marketplace
+```
+
+2. Install dependencies:
+```bash
+go mod download
+```
+
+3. Build the project:
+```bash
+go build -o logistics-marketplace cmd/api/main.go
+```
+
+## Running the Application
+
+1. Start the API server:
+```bash
+./logistics-marketplace
+```
+
+The server will start on port 8080 (or the port specified in environment variables).
+
+## Token Economics
+
+- Token Name: Logistics Marketplace Token (LMT)
+- Total Supply: 100,000,000,000 tokens
+- Use Cases:
+  - Service payments
+  - Booking deposits
+  - Customs duty payments
+  - Platform fees
+
+## Security
+
+- JWT-based authentication
+- Blockchain-based transaction security
+- Smart contract security measures
+- Rate limiting and CORS protection
+
+## Development
+
+### Testing
+```bash
+go test ./...
+```
+
+### Local Development
+1. Use Stellar testnet for development
+2. Deploy contracts using Soroban CLI
+3. Set up environment variables
+4. Run the application
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a pull request or raise an issue in the repository.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-```
+MIT License
+
+## Support
+
+For support, please open an issue in the repository or contact the development team.
