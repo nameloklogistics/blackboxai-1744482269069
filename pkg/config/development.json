@@ -1,0 +1,24 @@
+{
+    "network": {
+        "network_passphrase": "Test SDF Network ; September 2015",
+        "horizon_url": "https://horizon-testnet.stellar.org",
+        "network_url": "https://testnet.stellar.org"
+    },
+    "token": {
+        "max_supply": "100000000000",
+        "token_name": "Logistics Service Token",
+        "token_code": "LST",
+        "issuer_secret": ""
+    },
+    "services": {
+        "freight_forwarding": true,
+        "customs_brokerage": true,
+        "shipping": true,
+        "air_freight": true
+    },
+    "development": {
+        "debug": true,
+        "port": "8080",
+        "database_url": "postgresql://localhost:5432/logistics_marketplace?sslmode=disable"
+    }
+}
