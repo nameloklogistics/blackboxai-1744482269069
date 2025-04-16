@@ -1,83 +1,149 @@
 package models
 
 import (
-	"time"
+    "time"
 )
 
-// ServiceProvider represents a logistics service provider (forwarder) profile
-type ServiceProvider struct {
-	ID                    string    `json:"id"`
-	CompanyName           string    `json:"company_name"`
-	ContactPerson         string    `json:"contact_person"`
-	Telephone            string    `json:"telephone"`
-	Email                string    `json:"email"`
-	Country              string    `json:"country"`
-	Address              string    `json:"address"`
-	BusinessLicense      string    `json:"business_license"`
-	TaxID                string    `json:"tax_id"`
-	
-	// Logistics Infrastructure
-	MajorSeaPorts        []Port    `json:"major_sea_ports"`
-	InternationalAirports []Airport `json:"international_airports"`
-	ContainerTerminals   []Terminal `json:"container_terminals"`
-	
-	// Certifications and Memberships
-	IATA                 bool      `json:"iata_member"`
-	FIATA                bool      `json:"fiata_member"`
-	CustomsBrokerLicense string    `json:"customs_broker_license"`
-	
-	// Blockchain Details
-	WalletAddress        string    `json:"wallet_address"`
-	
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+// ProfileType represents different types of profiles
+const (
+    ProfileTypePersonal   = "PERSONAL"
+    ProfileTypeCompany    = "COMPANY"
+    ProfileTypeEmployee   = "EMPLOYEE"
+)
+
+// VerificationStatus represents profile verification status
+const (
+    VerificationStatusPending   = "PENDING"
+    VerificationStatusVerified  = "VERIFIED"
+    VerificationStatusRejected  = "REJECTED"
+    VerificationStatusExpired   = "EXPIRED"
+)
+
+// UserProfile represents a user's profile information
+type UserProfile struct {
+    BaseModel
+    UserID          string    `json:"user_id"`
+    ProfileType     string    `json:"profile_type"`
+    FirstName       string    `json:"first_name"`
+    LastName        string    `json:"last_name"`
+    Email           string    `json:"email"`
+    Phone           string    `json:"phone"`
+    Title           string    `json:"title"`
+    Department      string    `json:"department"`
+    CompanyID       string    `json:"company_id,omitempty"`
+    Address         Address   `json:"address"`
+    Timezone        string    `json:"timezone"`
+    Language        string    `json:"language"`
+    ProfilePicture  string    `json:"profile_picture"`
+    IsVerified      bool      `json:"is_verified"`
+    LastLogin       time.Time `json:"last_login"`
 }
 
-// ServiceBuyer represents a shipper/customer profile
-type ServiceBuyer struct {
-	ID                string    `json:"id"`
-	CompanyName       string    `json:"company_name"`
-	ContactPerson     string    `json:"contact_person"`
-	Telephone        string    `json:"telephone"`
-	Email            string    `json:"email"`
-	Country          string    `json:"country"`
-	Address          string    `json:"address"`
-	BusinessType     string    `json:"business_type"` // Importer/Exporter/Both
-	TaxID            string    `json:"tax_id"`
-	
-	// Trade Information
-	ImporterCode     string    `json:"importer_code,omitempty"`
-	ExporterCode     string    `json:"exporter_code,omitempty"`
-	
-	// Blockchain Details
-	WalletAddress    string    `json:"wallet_address"`
-	
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+// CompanyProfile represents a company's profile information
+type CompanyProfile struct {
+    BaseModel
+    Name                string    `json:"name"`
+    LegalName           string    `json:"legal_name"`
+    RegistrationNumber  string    `json:"registration_number"`
+    TaxID               string    `json:"tax_id"`
+    Industry           string    `json:"industry"`
+    CompanySize        string    `json:"company_size"`
+    YearEstablished    int       `json:"year_established"`
+    Website            string    `json:"website"`
+    Description        string    `json:"description"`
+    Logo               string    `json:"logo"`
+    HeadOffice         Address   `json:"head_office"`
+    BillingAddress     Address   `json:"billing_address"`
+    PrimaryContact     Contact   `json:"primary_contact"`
+    VerificationStatus string    `json:"verification_status"`
+    VerifiedAt        time.Time  `json:"verified_at,omitempty"`
+    Documents         []Document `json:"documents"`
+    ServiceTypes      []string  `json:"service_types"`
+    OperatingRegions []string  `json:"operating_regions"`
+    Certifications   []Certification `json:"certifications"`
+    Licenses         []License  `json:"licenses"`
 }
 
-// Port represents a sea port
-type Port struct {
-	Name        string `json:"name"`
-	Code        string `json:"code"` // UN/LOCODE
-	Country     string `json:"country"`
-	Coordinates string `json:"coordinates"`
+// Certification represents a business certification
+type Certification struct {
+    BaseModel
+    Type            string    `json:"type"`
+    Number          string    `json:"number"`
+    IssuedBy        string    `json:"issued_by"`
+    IssuedDate      time.Time `json:"issued_date"`
+    ExpiryDate      time.Time `json:"expiry_date"`
+    Status          string    `json:"status"`
+    DocumentURL     string    `json:"document_url"`
 }
 
-// Airport represents an international airport
-type Airport struct {
-	Name        string `json:"name"`
-	Code        string `json:"code"` // IATA code
-	Country     string `json:"country"`
-	Coordinates string `json:"coordinates"`
+// CompanyBranch represents a company branch office
+type CompanyBranch struct {
+    BaseModel
+    CompanyID       string    `json:"company_id"`
+    Name            string    `json:"name"`
+    Type            string    `json:"type"` // HQ, BRANCH, SATELLITE
+    Address         Address   `json:"address"`
+    Contact         Contact   `json:"contact"`
+    OperatingHours  Schedule  `json:"operating_hours"`
+    Services        []string  `json:"services"`
+    IsActive        bool      `json:"is_active"`
 }
 
-// Terminal represents an inland container terminal
-type Terminal struct {
-	Name        string `json:"name"`
-	Code        string `json:"code"`
-	Location    string `json:"location"`
-	Country     string `json:"country"`
-	Coordinates string `json:"coordinates"`
-	Facilities  []string `json:"facilities"` // e.g., "Container Storage", "Customs Clearance"
+// ProfileSettings represents user profile settings
+type ProfileSettings struct {
+    BaseModel
+    UserID          string    `json:"user_id"`
+    Notifications   struct {
+        Email       bool      `json:"email"`
+        SMS         bool      `json:"sms"`
+        Push        bool      `json:"push"`
+    } `json:"notifications"`
+    Privacy         struct {
+        ShowEmail   bool      `json:"show_email"`
+        ShowPhone   bool      `json:"show_phone"`
+        ShowProfile bool      `json:"show_profile"`
+    } `json:"privacy"`
+    Communication   struct {
+        Language    string    `json:"language"`
+        TimeZone    string    `json:"timezone"`
+        Currency    string    `json:"currency"`
+    } `json:"communication"`
+}
+
+// ProfileVerification represents verification details
+type ProfileVerification struct {
+    BaseModel
+    ProfileID       string    `json:"profile_id"`
+    Type            string    `json:"type"`
+    Status          string    `json:"status"`
+    VerifiedBy      string    `json:"verified_by"`
+    VerifiedAt      time.Time `json:"verified_at"`
+    ExpiresAt       time.Time `json:"expires_at"`
+    Documents       []Document `json:"documents"`
+    Notes           string    `json:"notes"`
+}
+
+// ProfileActivity represents profile activity logs
+type ProfileActivity struct {
+    BaseModel
+    ProfileID       string    `json:"profile_id"`
+    Type            string    `json:"type"`
+    Description     string    `json:"description"`
+    IPAddress       string    `json:"ip_address"`
+    UserAgent       string    `json:"user_agent"`
+    Location        string    `json:"location"`
+}
+
+// CompanyReview represents a review for a company
+type CompanyReview struct {
+    BaseModel
+    CompanyID       string    `json:"company_id"`
+    ReviewerID      string    `json:"reviewer_id"`
+    Rating          float32   `json:"rating"`
+    Title           string    `json:"title"`
+    Content         string    `json:"content"`
+    Categories      map[string]float32 `json:"categories"`
+    Response        string    `json:"response,omitempty"`
+    ResponseDate    time.Time `json:"response_date,omitempty"`
+    IsVerified      bool      `json:"is_verified"`
 }
