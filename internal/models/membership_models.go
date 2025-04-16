@@ -1,83 +1,141 @@
 package models
 
 import (
-	"fmt"
-	"time"
+    "time"
+)
+
+// MembershipTier represents different membership levels
+const (
+    TierBasic    = "BASIC"
+    TierPremium  = "PREMIUM"
+    TierBusiness = "BUSINESS"
+    TierEnterprise = "ENTERPRISE"
 )
 
 // MembershipStatus represents the status of a membership
-type MembershipStatus string
-
 const (
-	MembershipTrial    MembershipStatus = "TRIAL"
-	MembershipActive   MembershipStatus = "ACTIVE"
-	MembershipExpired  MembershipStatus = "EXPIRED"
-	MembershipCanceled MembershipStatus = "CANCELED"
+    StatusActive    = "ACTIVE"
+    StatusInactive  = "INACTIVE"
+    StatusSuspended = "SUSPENDED"
+    StatusExpired   = "EXPIRED"
 )
 
-// MembershipType represents the type of membership
-type MembershipType string
-
-const (
-	FreightForwarderMembership MembershipType = "FREIGHT_FORWARDER"
-	CustomsBrokerMembership    MembershipType = "CUSTOMS_BROKER"
-)
-
-// Membership represents a subscription membership
+// Membership represents a user's membership details
 type Membership struct {
-	ID              string           `json:"id"`
-	MemberType      MembershipType   `json:"member_type"`
-	MemberID        string           `json:"member_id"`      // ID of the freight forwarder or customs broker
-	Status          MembershipStatus `json:"status"`
-	StartDate       time.Time        `json:"start_date"`
-	EndDate         time.Time        `json:"end_date"`
-	TrialEndDate    time.Time        `json:"trial_end_date"`
-	LastRenewalDate time.Time        `json:"last_renewal_date"`
-	NextRenewalDate time.Time        `json:"next_renewal_date"`
-	AnnualFeeUSD    float64         `json:"annual_fee_usd"`
-	IsAutoRenew     bool            `json:"is_auto_renew"`
-	PaymentMethod   string          `json:"payment_method,omitempty"`
-	CreatedAt       time.Time        `json:"created_at"`
-	UpdatedAt       time.Time        `json:"updated_at"`
+    BaseModel
+    UserID          string    `json:"user_id"`
+    Tier            string    `json:"tier"`
+    Status          string    `json:"status"`
+    StartDate       time.Time `json:"start_date"`
+    EndDate         time.Time `json:"end_date"`
+    AutoRenew       bool      `json:"auto_renew"`
+    PaymentMethod   string    `json:"payment_method"`
+    LastBillingDate time.Time `json:"last_billing_date"`
+    NextBillingDate time.Time `json:"next_billing_date"`
 }
 
-// MembershipConfig contains configuration for memberships
-type MembershipConfig struct {
-	AnnualFeeUSD     float64
-	TrialPeriodDays  int
-	GracePeriodDays  int
-	RenewalReminders []int // Days before expiry to send reminders
+// MembershipBenefit represents benefits available to different tiers
+type MembershipBenefit struct {
+    BaseModel
+    Tier            string    `json:"tier"`
+    Name            string    `json:"name"`
+    Description     string    `json:"description"`
+    Type            string    `json:"type"` // DISCOUNT, FEATURE, SERVICE
+    Value           string    `json:"value"`
+    IsActive        bool      `json:"is_active"`
 }
 
-// DefaultMembershipConfig returns the default membership configuration
-func DefaultMembershipConfig() MembershipConfig {
-	return MembershipConfig{
-		AnnualFeeUSD:    150.0,
-		TrialPeriodDays: 30,
-		GracePeriodDays: 15,
-		RenewalReminders: []int{30, 15, 7, 3, 1},
-	}
+// MembershipPlan represents available membership plans
+type MembershipPlan struct {
+    BaseModel
+    Tier            string    `json:"tier"`
+    Name            string    `json:"name"`
+    Description     string    `json:"description"`
+    Price           Currency  `json:"price"`
+    BillingCycle    string    `json:"billing_cycle"` // MONTHLY, QUARTERLY, YEARLY
+    Benefits        []MembershipBenefit `json:"benefits"`
+    IsActive        bool      `json:"is_active"`
 }
 
-// MembershipError represents an error related to membership operations
-type MembershipError struct {
-	MemberID   string
-	MemberType MembershipType
-	Reason     string
+// MembershipTransaction represents a membership-related transaction
+type MembershipTransaction struct {
+    BaseModel
+    UserID          string    `json:"user_id"`
+    MembershipID    string    `json:"membership_id"`
+    Type            string    `json:"type"` // PURCHASE, RENEWAL, UPGRADE, CANCELLATION
+    Amount          Currency  `json:"amount"`
+    PaymentMethod   string    `json:"payment_method"`
+    Status          string    `json:"status"`
+    TransactionID   string    `json:"transaction_id"`
 }
 
-func (e *MembershipError) Error() string {
-	return fmt.Sprintf("membership error for %s %s: %s", e.MemberType, e.MemberID, e.Reason)
+// MembershipDiscount represents discounts available to members
+type MembershipDiscount struct {
+    BaseModel
+    Tier            string    `json:"tier"`
+    ServiceType     string    `json:"service_type"`
+    DiscountType    string    `json:"discount_type"` // PERCENTAGE, FIXED
+    DiscountValue   float64   `json:"discount_value"`
+    MinSpend        float64   `json:"min_spend"`
+    MaxDiscount     float64   `json:"max_discount"`
+    ValidFrom       time.Time `json:"valid_from"`
+    ValidUntil      time.Time `json:"valid_until"`
+    IsActive        bool      `json:"is_active"`
 }
 
-// Payment represents a membership payment
-type Payment struct {
-	ID            string      `json:"id"`
-	MembershipID  string      `json:"membership_id"`
-	Amount        float64     `json:"amount"`
-	Currency      string      `json:"currency"`
-	PaymentMethod string      `json:"payment_method"`
-	Status        string      `json:"status"`
-	PaidAt        time.Time   `json:"paid_at"`
-	CreatedAt     time.Time   `json:"created_at"`
+// MembershipUsage represents usage of membership benefits
+type MembershipUsage struct {
+    BaseModel
+    UserID          string    `json:"user_id"`
+    MembershipID    string    `json:"membership_id"`
+    BenefitID       string    `json:"benefit_id"`
+    UsageDate       time.Time `json:"usage_date"`
+    UsageAmount     float64   `json:"usage_amount"`
+    RemainingQuota  float64   `json:"remaining_quota"`
+}
+
+// MembershipInvitation represents invitations for enterprise memberships
+type MembershipInvitation struct {
+    BaseModel
+    InviterID       string    `json:"inviter_id"`
+    Email           string    `json:"email"`
+    CompanyID       string    `json:"company_id"`
+    Role            string    `json:"role"`
+    Status          string    `json:"status"`
+    ExpiresAt       time.Time `json:"expires_at"`
+    AcceptedAt      time.Time `json:"accepted_at,omitempty"`
+}
+
+// MembershipNotification represents notifications for membership events
+type MembershipNotification struct {
+    BaseModel
+    UserID          string    `json:"user_id"`
+    Type            string    `json:"type"` // EXPIRY, RENEWAL, UPGRADE
+    Title           string    `json:"title"`
+    Message         string    `json:"message"`
+    SentAt          time.Time `json:"sent_at"`
+    ReadAt          time.Time `json:"read_at,omitempty"`
+}
+
+// MembershipAudit represents audit logs for membership changes
+type MembershipAudit struct {
+    BaseModel
+    UserID          string    `json:"user_id"`
+    MembershipID    string    `json:"membership_id"`
+    Action          string    `json:"action"`
+    PreviousState   string    `json:"previous_state"`
+    NewState        string    `json:"new_state"`
+    ChangedBy       string    `json:"changed_by"`
+    ChangeReason    string    `json:"change_reason"`
+}
+
+// MembershipSettings represents user-specific membership settings
+type MembershipSettings struct {
+    BaseModel
+    UserID          string    `json:"user_id"`
+    NotifyExpiry    bool      `json:"notify_expiry"`
+    NotifyRenewal   bool      `json:"notify_renewal"`
+    NotifyUpgrades  bool      `json:"notify_upgrades"`
+    AutoRenew       bool      `json:"auto_renew"`
+    PreferredPaymentMethod string `json:"preferred_payment_method"`
 }
