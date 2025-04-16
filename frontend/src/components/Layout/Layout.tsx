@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { RootState } from '../../types';
 import {
   Box,
   Drawer,
@@ -30,8 +31,7 @@ import {
   ExitToApp,
   ChevronLeft,
 } from '@mui/icons-material';
-import { RootState } from '../../store';
-import { useNotificationCenter } from '../shared/NotificationCenter';
+import { useNotification } from '../shared/NotificationCenter';
 import { ROUTES, USER_ROLES } from '../../constants';
 
 const drawerWidth = 240;
@@ -45,12 +45,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { showSuccess } = useNotificationCenter();
+  const { showSuccess } = useNotification();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const { user } = useSelector((state: RootState) => state.auth);
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
