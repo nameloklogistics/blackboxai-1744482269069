@@ -1,12 +1,25 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Provider } from 'react-redux';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { ThemeProvider, CssBaseline, CircularProgress, Box } from '@mui/material';
 import { NotificationProvider } from './components/shared/NotificationCenter';
-import routes from './routes/routes';
+import { store } from './store';
 import theme from './theme';
-import store from './store';
+import routes from './routes/routes';
+
+// Loading component for route suspense fallback
+const LoadingScreen = () => (
+  <Box
+    sx={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+    }}
+  >
+    <CircularProgress />
+  </Box>
+);
 
 const router = createBrowserRouter(routes);
 
@@ -16,7 +29,9 @@ const App: React.FC = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <NotificationProvider>
-          <RouterProvider router={router} />
+          <Suspense fallback={<LoadingScreen />}>
+            <RouterProvider router={router} />
+          </Suspense>
         </NotificationProvider>
       </ThemeProvider>
     </Provider>
