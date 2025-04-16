@@ -26,6 +26,11 @@ func main() {
 	)
 
 	// Initialize services
+	governanceService := services.NewGovernanceService(
+		accountManager,
+		tokenManager,
+		os.Getenv("GOVERNANCE_CONTRACT_ID"),
+	)
 	marketplaceService := services.NewMarketplaceService(txManager, tokenManager)
 	customsService := services.NewCustomsService(txManager, tokenManager)
 	trackingService := services.NewTrackingService(txManager, tokenManager)
@@ -36,6 +41,7 @@ func main() {
 	serviceCategoriesService := services.NewServiceCategoriesService(txManager, tokenManager)
 
 	// Initialize handlers
+	governanceHandler := handlers.NewGovernanceHandler(governanceService)
 	marketplaceHandler := handlers.NewMarketplaceHandler(marketplaceService, customsService)
 	trackingHandler := handlers.NewTrackingHandler(trackingService)
 	profileHandler := handlers.NewProfileHandler(profileService)
@@ -55,6 +61,21 @@ func main() {
 	// API Routes
 	api := router.Group("/api/v1")
 	{
+		// Governance Routes
+		governance := api.Group("/governance")
+		{
+			// Proposals
+			governance.POST("/proposals", governanceHandler.CreateProposal)
+			governance.GET("/proposals", governanceHandler.ListProposals)
+			governance.GET("/proposals/:id", governanceHandler.GetProposal)
+			governance.POST("/proposals/:id/vote", governanceHandler.CastVote)
+			governance.POST("/proposals/:id/execute", governanceHandler.ExecuteProposal)
+			governance.GET("/proposals/:id/votes/:voter", governanceHandler.GetVote)
+			
+			// Parameters
+			governance.GET("/parameters/:name", governanceHandler.GetParameter)
+		}
+
 		// Service Categories
 		services := api.Group("/services")
 		{
