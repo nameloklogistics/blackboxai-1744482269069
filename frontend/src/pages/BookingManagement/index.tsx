@@ -1,200 +1,256 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box,
-  Button,
+  Tabs,
+  Tab,
+  Typography,
   Card,
   CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Grid,
-  Typography,
-  Stepper,
-  Step,
-  StepLabel,
   Chip,
+  Button,
   CircularProgress,
-  Divider,
+  useTheme,
 } from '@mui/material';
 import {
   LocalShipping,
-  Payment,
-  Timeline,
+  AccessTime,
   CheckCircle,
-  Warning,
+  Cancel,
+  Payment,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../store';
-import {
-  fetchBookings,
-  updateBookingStatus,
-  Booking,
-} from '../../store/slices/marketplaceSlice';
+import { fetchBookings } from '../../store/slices/marketplaceSlice';
+import PageHeader from '../../components/shared/PageHeader';
+import { BookingStatusChip } from '../../components/shared/StatusChip';
+import DataTable from '../../components/shared/DataTable';
+import { Booking, BookingStatus } from '../../types';
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'CONFIRMED':
-      return 'success';
-    case 'PENDING':
-      return 'warning';
-    case 'IN_PROGRESS':
-      return 'info';
-    case 'COMPLETED':
-      return 'success';
-    case 'CANCELLED':
-      return 'error';
-    default:
-      return 'default';
-  }
-};
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
 
-const getPaymentStatusColor = (status: string) => {
-  switch (status) {
-    case 'PAID':
-      return 'success';
-    case 'UNPAID':
-      return 'error';
-    case 'PROCESSING':
-      return 'warning';
-    case 'REFUNDED':
-      return 'info';
-    default:
-      return 'default';
-  }
+const TabPanel = (props: TabPanelProps) => {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`booking-tabpanel-${index}`}
+      aria-labelledby={`booking-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  );
 };
 
 const BookingManagement: React.FC = () => {
+  const theme = useTheme();
   const dispatch = useAppDispatch();
+  const [tabValue, setTabValue] = useState(0);
   const { bookings, loading } = useAppSelector((state) => state.marketplace);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [openTrackingDialog, setOpenTrackingDialog] = useState(false);
 
   useEffect(() => {
     dispatch(fetchBookings());
   }, [dispatch]);
 
-  const handleViewTracking = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setOpenTrackingDialog(true);
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
   };
 
-  const getTrackingSteps = (trackingInfo: any[]) => {
-    return trackingInfo.map((info) => ({
-      label: info.status,
-      description: info.description,
-      location: info.location,
-      timestamp: new Date(info.timestamp).toLocaleString(),
-    }));
+  const getStatusColor = (status: BookingStatus) => {
+    switch (status) {
+      case 'PENDING':
+        return theme.palette.warning.main;
+      case 'CONFIRMED':
+        return theme.palette.info.main;
+      case 'IN_PROGRESS':
+        return theme.palette.primary.main;
+      case 'COMPLETED':
+        return theme.palette.success.main;
+      case 'CANCELLED':
+        return theme.palette.error.main;
+      default:
+        return theme.palette.grey[500];
+    }
+  };
+
+  const columns = [
+    {
+      id: 'id',
+      label: 'Booking ID',
+      render: (value: string) => (
+        <Typography variant="body2" color="primary">
+          #{value}
+        </Typography>
+      ),
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      render: (value: BookingStatus) => (
+        <BookingStatusChip status={value} />
+      ),
+    },
+    {
+      id: 'paymentStatus',
+      label: 'Payment',
+      render: (value: string) => (
+        <Chip
+          size="small"
+          label={value}
+          color={value === 'PAID' ? 'success' : 'warning'}
+        />
+      ),
+    },
+    {
+      id: 'createdAt',
+      label: 'Created',
+      render: (value: string) => new Date(value).toLocaleDateString(),
+    },
+    {
+      id: 'paymentAmount',
+      label: 'Amount',
+      render: (value: number) => `${value} LMT`,
+    },
+  ];
+
+  const filterBookings = (status: BookingStatus[]) => {
+    return bookings.filter((booking) => status.includes(booking.status));
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Bookings
-      </Typography>
+    <Box>
+      <PageHeader
+        title="Booking Management"
+        subtitle="Track and manage your logistics bookings"
+      />
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
+          <Tab label="All Bookings" />
+          <Tab label="Active" />
+          <Tab label="Completed" />
+          <Tab label="Cancelled" />
+        </Tabs>
+      </Box>
 
       {loading ? (
         <Box display="flex" justifyContent="center" p={3}>
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={3}>
-          {bookings.map((booking: Booking) => (
-            <Grid item xs={12} md={6} key={booking.id}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="h6">Booking #{booking.id}</Typography>
-                    <Chip
-                      label={booking.status}
-                      color={getStatusColor(booking.status) as any}
-                      size="small"
-                    />
-                  </Box>
+        <>
+          <TabPanel value={tabValue} index={0}>
+            <DataTable
+              data={bookings}
+              columns={columns}
+              onRowClick={(booking: Booking) => console.log('Clicked booking:', booking)}
+            />
+          </TabPanel>
 
-                  <Typography color="textSecondary" gutterBottom>
-                    Service ID: {booking.serviceId}
-                  </Typography>
+          <TabPanel value={tabValue} index={1}>
+            <DataTable
+              data={filterBookings(['CONFIRMED', 'IN_PROGRESS'])}
+              columns={columns}
+              onRowClick={(booking: Booking) => console.log('Clicked booking:', booking)}
+            />
+          </TabPanel>
 
-                  <Box mb={2}>
-                    <Typography variant="subtitle2">Cargo Details:</Typography>
-                    <Typography>Weight: {booking.cargoDetails.weight} kg</Typography>
-                    <Typography>Volume: {booking.cargoDetails.volume} m³</Typography>
-                    <Typography>Type: {booking.cargoDetails.type}</Typography>
-                  </Box>
+          <TabPanel value={tabValue} index={2}>
+            <DataTable
+              data={filterBookings(['COMPLETED'])}
+              columns={columns}
+              onRowClick={(booking: Booking) => console.log('Clicked booking:', booking)}
+            />
+          </TabPanel>
 
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Box display="flex" alignItems="center">
-                      <Payment sx={{ mr: 1 }} />
-                      <Typography>
-                        Payment: {booking.paymentAmount} LMT
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={booking.paymentStatus}
-                      color={getPaymentStatusColor(booking.paymentStatus) as any}
-                      size="small"
-                    />
-                  </Box>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<Timeline />}
-                    fullWidth
-                    onClick={() => handleViewTracking(booking)}
-                  >
-                    View Tracking
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+          <TabPanel value={tabValue} index={3}>
+            <DataTable
+              data={filterBookings(['CANCELLED'])}
+              columns={columns}
+              onRowClick={(booking: Booking) => console.log('Clicked booking:', booking)}
+            />
+          </TabPanel>
+        </>
       )}
 
-      {/* Tracking Dialog */}
-      <Dialog
-        open={openTrackingDialog}
-        onClose={() => setOpenTrackingDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          Shipment Tracking - Booking #{selectedBooking?.id}
-        </DialogTitle>
-        <DialogContent>
-          {selectedBooking && (
-            <Box sx={{ mt: 2 }}>
-              <Stepper orientation="vertical">
-                {getTrackingSteps(selectedBooking.trackingInfo).map((step, index) => (
-                  <Step key={index} active={true}>
-                    <StepLabel
-                      StepIconComponent={() =>
-                        index === 0 ? (
-                          <CheckCircle color="primary" />
-                        ) : (
-                          <LocalShipping color="primary" />
-                        )
-                      }
-                    >
-                      <Typography variant="subtitle1">{step.label}</Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {step.location}
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        {step.timestamp}
-                      </Typography>
-                    </StepLabel>
-                  </Step>
-                ))}
-              </Stepper>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenTrackingDialog(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      {/* Summary Cards */}
+      <Grid container spacing={3} sx={{ mt: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <LocalShipping color="primary" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Total Bookings
+                  </Typography>
+                  <Typography variant="h6">{bookings.length}</Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <AccessTime color="warning" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Pending
+                  </Typography>
+                  <Typography variant="h6">
+                    {filterBookings(['PENDING']).length}
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <CheckCircle color="success" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Completed
+                  </Typography>
+                  <Typography variant="h6">
+                    {filterBookings(['COMPLETED']).length}
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <Payment color="info" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Total Value
+                  </Typography>
+                  <Typography variant="h6">
+                    {bookings.reduce((sum, booking) => sum + booking.paymentAmount, 0)} LMT
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   );
 };
