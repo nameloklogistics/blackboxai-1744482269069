@@ -2,16 +2,29 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"strings"
+	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
 
 	"logistics-marketplace/cmd/api/handlers"
 	"logistics-marketplace/internal/services"
 	"logistics-marketplace/internal/stellar"
 )
 
+var jwtSecret []byte
+
 func main() {
+	jwtSecretEnv := os.Getenv("JWT_SECRET")
+	if jwtSecretEnv == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+	jwtSecret = []byte(jwtSecretEnv)
+
 	// Initialize Stellar components
 	accountManager := stellar.NewAccountManager(true) // Use testnet for development
 	tokenManager := stellar.NewTokenManager(
@@ -52,11 +65,14 @@ func main() {
 	serviceCategoriesHandler := handlers.NewServiceCategoriesHandler(serviceCategoriesService)
 
 	// Initialize Gin router
-	router := gin.Default()
+	router := gin.New()
 
 	// Middleware
+	router.Use(gin.Recovery())
+	router.Use(loggingMiddleware())
 	router.Use(corsMiddleware())
 	router.Use(authMiddleware())
+	router.Use(rateLimitMiddleware(100, time.Minute)) // 100 requests per minute
 
 	// API Routes
 	api := router.Group("/api/v1")
@@ -71,7 +87,7 @@ func main() {
 			governance.POST("/proposals/:id/vote", governanceHandler.CastVote)
 			governance.POST("/proposals/:id/execute", governanceHandler.ExecuteProposal)
 			governance.GET("/proposals/:id/votes/:voter", governanceHandler.GetVote)
-			
+
 			// Parameters
 			governance.GET("/parameters/:name", governanceHandler.GetParameter)
 		}
@@ -306,7 +322,7 @@ func main() {
 					c.Param("user_type", "CONSIGNEE")
 					userOperationsHandler.ConfirmQuote(c)
 				})
-				
+
 				// Booking Management
 				consignee.POST("/bookings", func(c *gin.Context) {
 					c.Param("user_type", "CONSIGNEE")
@@ -342,7 +358,7 @@ func main() {
 					c.Param("user_type", "SHIPPER")
 					userOperationsHandler.ConfirmQuote(c)
 				})
-				
+
 				// Booking Management
 				shipper.POST("/bookings", func(c *gin.Context) {
 					c.Param("user_type", "SHIPPER")
@@ -371,7 +387,7 @@ func main() {
 					c.Param("user_type", "FREIGHT_FORWARDER")
 					userOperationsHandler.ListQuoteResponses(c)
 				})
-				
+
 				// Booking Management
 				forwarder.POST("/bookings/confirm", userOperationsHandler.ConfirmBooking)
 				forwarder.GET("/bookings", func(c *gin.Context) {
@@ -380,140 +396,12 @@ func main() {
 				})
 			}
 		}
-
-		// Infrastructure Management
-		infrastructure := api.Group("/infrastructure")
-		{
-			infrastructure.GET("/country/:country_code", infrastructureHandler.GetCountryInfrastructure)
-			
-			// Airports
-			airports := infrastructure.Group("/airports")
-			{
-				airports.POST("/", infrastructureHandler.CreateAirport)
-				airports.GET("/:id/services", infrastructureHandler.GetInfrastructureServices)
-				airports.PUT("/:id/capacity", infrastructureHandler.UpdateInfrastructureCapacity)
-				airports.PUT("/:id/schedule", infrastructureHandler.UpdateInfrastructureSchedule)
-				airports.GET("/:id/capacity", infrastructureHandler.GetInfrastructureCapacity)
-				airports.GET("/:id/schedule", infrastructureHandler.GetOperatingSchedule)
-			}
-
-			// Seaports
-			seaports := infrastructure.Group("/seaports")
-			{
-				seaports.POST("/", infrastructureHandler.CreateSeaport)
-				seaports.GET("/:id/services", infrastructureHandler.GetInfrastructureServices)
-				seaports.PUT("/:id/capacity", infrastructureHandler.UpdateInfrastructureCapacity)
-				seaports.PUT("/:id/schedule", infrastructureHandler.UpdateInfrastructureSchedule)
-				seaports.GET("/:id/capacity", infrastructureHandler.GetInfrastructureCapacity)
-				seaports.GET("/:id/schedule", infrastructureHandler.GetOperatingSchedule)
-			}
-
-			// Inland Depots
-			depots := infrastructure.Group("/depots")
-			{
-				depots.POST("/", infrastructureHandler.CreateInlandDepot)
-				depots.GET("/:id/services", infrastructureHandler.GetInfrastructureServices)
-				depots.PUT("/:id/capacity", infrastructureHandler.UpdateInfrastructureCapacity)
-				depots.PUT("/:id/schedule", infrastructureHandler.UpdateInfrastructureSchedule)
-				depots.GET("/:id/capacity", infrastructureHandler.GetInfrastructureCapacity)
-				depots.GET("/:id/schedule", infrastructureHandler.GetOperatingSchedule)
-			}
-
-			infrastructure.GET("/nearby", infrastructureHandler.GetNearbyInfrastructure)
-			infrastructure.GET("/services/:service_id/locations", infrastructureHandler.GetServiceLocations)
-		}
-
-		// Transport Services
-		transport := api.Group("/transport")
-		{
-			// Sea Transport
-			sea := transport.Group("/sea")
-			{
-				sea.POST("/services", transportHandler.CreateSeaService)
-				sea.GET("/services", func(c *gin.Context) {
-					c.Param("mode", "SEA")
-					transportHandler.ListServicesByMode(c)
-				})
-				sea.GET("/templates", func(c *gin.Context) {
-					c.Param("mode", "SEA")
-					transportHandler.GetServiceTemplates(c)
-				})
-				sea.GET("/equipment", func(c *gin.Context) {
-					c.Param("mode", "SEA")
-					transportHandler.GetEquipmentTypes(c)
-				})
-			}
-
-			// Air Transport
-			air := transport.Group("/air")
-			{
-				air.POST("/services", transportHandler.CreateAirService)
-				air.GET("/services", func(c *gin.Context) {
-					c.Param("mode", "AIR")
-					transportHandler.ListServicesByMode(c)
-				})
-				air.GET("/templates", func(c *gin.Context) {
-					c.Param("mode", "AIR")
-					transportHandler.GetServiceTemplates(c)
-				})
-				air.GET("/equipment", func(c *gin.Context) {
-					c.Param("mode", "AIR")
-					transportHandler.GetEquipmentTypes(c)
-				})
-			}
-
-			// Rail Transport
-			rail := transport.Group("/rail")
-			{
-				rail.POST("/services", transportHandler.CreateRailService)
-				rail.GET("/services", func(c *gin.Context) {
-					c.Param("mode", "RAIL")
-					transportHandler.ListServicesByMode(c)
-				})
-				rail.GET("/templates", func(c *gin.Context) {
-					c.Param("mode", "RAIL")
-					transportHandler.GetServiceTemplates(c)
-				})
-				rail.GET("/equipment", func(c *gin.Context) {
-					c.Param("mode", "RAIL")
-					transportHandler.GetEquipmentTypes(c)
-				})
-			}
-
-			// Road Transport
-			road := transport.Group("/road")
-			{
-				road.POST("/services", transportHandler.CreateRoadService)
-				road.GET("/services", func(c *gin.Context) {
-					c.Param("mode", "ROAD")
-					transportHandler.ListServicesByMode(c)
-				})
-				road.GET("/templates", func(c *gin.Context) {
-					c.Param("mode", "ROAD")
-					transportHandler.GetServiceTemplates(c)
-				})
-				road.GET("/equipment", func(c *gin.Context) {
-					c.Param("mode", "ROAD")
-					transportHandler.GetEquipmentTypes(c)
-				})
-			}
-		}
-
-		// Tracking and Routing
-		tracking := api.Group("/tracking")
-		{
-			tracking.POST("/events", trackingHandler.AddTrackingEvent)
-			tracking.GET("/:booking_id", trackingHandler.GetShipmentTracking)
-			tracking.POST("/transshipment", trackingHandler.AddTransshipmentPoint)
-			tracking.PUT("/routing/:booking_id", trackingHandler.UpdateRouting)
-			tracking.POST("/route/optimal", trackingHandler.GetOptimalRoute)
-		}
 	}
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"status": "healthy",
+			"status":  "healthy",
 			"version": "1.0.0",
 		})
 	})
@@ -530,11 +418,78 @@ func main() {
 	}
 }
 
+func loggingMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		latency := time.Since(start)
+		status := c.Writer.Status()
+		log.Printf("%s %s %d %s", c.Request.Method, c.Request.URL.Path, status, latency)
+	}
+}
+
+func authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authorization header required"})
+			c.Abort()
+			return
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			// Validate signing method
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return jwtSecret, nil
+		})
+
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			c.Abort()
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+			c.Abort()
+			return
+		}
+
+		userAddress, ok := claims["user_address"].(string)
+		if !ok || userAddress == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "user_address claim missing"})
+			c.Abort()
+			return
+		}
+
+		c.Set("user_address", userAddress)
+		c.Next()
+	}
+}
+
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		allowedOrigins := []string{
+			"https://yourdomain.com",
+			"https://www.yourdomain.com",
+		}
+		origin := c.GetHeader("Origin")
+		allowed := false
+		for _, o := range allowedOrigins {
+			if o == origin {
+				allowed = true
+				break
+			}
+		}
+		if allowed {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -545,20 +500,14 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func authMiddleware() gin.HandlerFunc {
+func rateLimitMiddleware(rps int, burstDuration time.Duration) gin.HandlerFunc {
+	limiter := rate.NewLimiter(rate.Every(burstDuration/time.Duration(rps)), rps)
 	return func(c *gin.Context) {
-		token := c.GetHeader("Authorization")
-		if token == "" {
-			c.JSON(401, gin.H{"error": "unauthorized"})
+		if !limiter.Allow() {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
 			c.Abort()
 			return
 		}
-
-		// In a real implementation, validate JWT token and extract user claims
-		// This is a simplified example
-		userID := "sample_user_id" // Would come from token validation
-		c.Set("user_id", userID)
-
 		c.Next()
 	}
 }
