@@ -70,6 +70,7 @@ func main() {
 	// Middleware
 	router.Use(gin.Recovery())
 	router.Use(loggingMiddleware())
+	router.Use(securityHeadersMiddleware())
 	router.Use(corsMiddleware())
 	router.Use(authMiddleware())
 	router.Use(rateLimitMiddleware(100, time.Minute)) // 100 requests per minute
@@ -396,6 +397,134 @@ func main() {
 				})
 			}
 		}
+
+		// Infrastructure Management
+		infrastructure := api.Group("/infrastructure")
+		{
+			infrastructure.GET("/country/:country_code", infrastructureHandler.GetCountryInfrastructure)
+
+			// Airports
+			airports := infrastructure.Group("/airports")
+			{
+				airports.POST("/", infrastructureHandler.CreateAirport)
+				airports.GET("/:id/services", infrastructureHandler.GetInfrastructureServices)
+				airports.PUT("/:id/capacity", infrastructureHandler.UpdateInfrastructureCapacity)
+				airports.PUT("/:id/schedule", infrastructureHandler.UpdateInfrastructureSchedule)
+				airports.GET("/:id/capacity", infrastructureHandler.GetInfrastructureCapacity)
+				airports.GET("/:id/schedule", infrastructureHandler.GetOperatingSchedule)
+			}
+
+			// Seaports
+			seaports := infrastructure.Group("/seaports")
+			{
+				seaports.POST("/", infrastructureHandler.CreateSeaport)
+				seaports.GET("/:id/services", infrastructureHandler.GetInfrastructureServices)
+				seaports.PUT("/:id/capacity", infrastructureHandler.UpdateInfrastructureCapacity)
+				seaports.PUT("/:id/schedule", infrastructureHandler.UpdateInfrastructureSchedule)
+				seaports.GET("/:id/capacity", infrastructureHandler.GetInfrastructureCapacity)
+				seaports.GET("/:id/schedule", infrastructureHandler.GetOperatingSchedule)
+			}
+
+			// Inland Depots
+			depots := infrastructure.Group("/depots")
+			{
+				depots.POST("/", infrastructureHandler.CreateInlandDepot)
+				depots.GET("/:id/services", infrastructureHandler.GetInfrastructureServices)
+				depots.PUT("/:id/capacity", infrastructureHandler.UpdateInfrastructureCapacity)
+				depots.PUT("/:id/schedule", infrastructureHandler.UpdateInfrastructureSchedule)
+				depots.GET("/:id/capacity", infrastructureHandler.GetInfrastructureCapacity)
+				depots.GET("/:id/schedule", infrastructureHandler.GetOperatingSchedule)
+			}
+
+			infrastructure.GET("/nearby", infrastructureHandler.GetNearbyInfrastructure)
+			infrastructure.GET("/services/:service_id/locations", infrastructureHandler.GetServiceLocations)
+		}
+
+		// Transport Services
+		transport := api.Group("/transport")
+		{
+			// Sea Transport
+			sea := transport.Group("/sea")
+			{
+				sea.POST("/services", transportHandler.CreateSeaService)
+				sea.GET("/services", func(c *gin.Context) {
+					c.Param("mode", "SEA")
+					transportHandler.ListServicesByMode(c)
+				})
+				sea.GET("/templates", func(c *gin.Context) {
+					c.Param("mode", "SEA")
+					transportHandler.GetServiceTemplates(c)
+				})
+				sea.GET("/equipment", func(c *gin.Context) {
+					c.Param("mode", "SEA")
+					transportHandler.GetEquipmentTypes(c)
+				})
+			}
+
+			// Air Transport
+			air := transport.Group("/air")
+			{
+				air.POST("/services", transportHandler.CreateAirService)
+				air.GET("/services", func(c *gin.Context) {
+					c.Param("mode", "AIR")
+					transportHandler.ListServicesByMode(c)
+				})
+				air.GET("/templates", func(c *gin.Context) {
+					c.Param("mode", "AIR")
+					transportHandler.GetServiceTemplates(c)
+				})
+				air.GET("/equipment", func(c *gin.Context) {
+					c.Param("mode", "AIR")
+					transportHandler.GetEquipmentTypes(c)
+				})
+			}
+
+			// Rail Transport
+			rail := transport.Group("/rail")
+			{
+				rail.POST("/services", transportHandler.CreateRailService)
+				rail.GET("/services", func(c *gin.Context) {
+					c.Param("mode", "RAIL")
+					transportHandler.ListServicesByMode(c)
+				})
+				rail.GET("/templates", func(c *gin.Context) {
+					c.Param("mode", "RAIL")
+					transportHandler.GetServiceTemplates(c)
+				})
+				rail.GET("/equipment", func(c *gin.Context) {
+					c.Param("mode", "RAIL")
+					transportHandler.GetEquipmentTypes(c)
+				})
+			}
+
+			// Road Transport
+			road := transport.Group("/road")
+			{
+				road.POST("/services", transportHandler.CreateRoadService)
+				road.GET("/services", func(c *gin.Context) {
+					c.Param("mode", "ROAD")
+					transportHandler.ListServicesByMode(c)
+				})
+				road.GET("/templates", func(c *gin.Context) {
+					c.Param("mode", "ROAD")
+					transportHandler.GetServiceTemplates(c)
+				})
+				road.GET("/equipment", func(c *gin.Context) {
+					c.Param("mode", "ROAD")
+					transportHandler.GetEquipmentTypes(c)
+				})
+			}
+		}
+
+		// Tracking and Routing
+		tracking := api.Group("/tracking")
+		{
+			tracking.POST("/events", trackingHandler.AddTrackingEvent)
+			tracking.GET("/:booking_id", trackingHandler.GetShipmentTracking)
+			tracking.POST("/transshipment", trackingHandler.AddTransshipmentPoint)
+			tracking.PUT("/routing/:booking_id", trackingHandler.UpdateRouting)
+			tracking.POST("/route/optimal", trackingHandler.GetOptimalRoute)
+		}
 	}
 
 	// Health check endpoint
@@ -459,6 +588,13 @@ func authMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Check token expiration
+		if exp, ok := claims["exp"].(float64); !ok || int64(exp) < time.Now().Unix() {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "token expired"})
+			c.Abort()
+			return
+		}
+
 		userAddress, ok := claims["user_address"].(string)
 		if !ok || userAddress == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "user_address claim missing"})
@@ -467,6 +603,18 @@ func authMiddleware() gin.HandlerFunc {
 		}
 
 		c.Set("user_address", userAddress)
+		c.Next()
+	}
+}
+
+func securityHeadersMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Content-Security-Policy", "default-src 'self'")
+		c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
+		c.Writer.Header().Set("X-Frame-Options", "DENY")
+		c.Writer.Header().Set("X-XSS-Protection", "1; mode=block")
+		c.Writer.Header().Set("Referrer-Policy", "no-referrer")
+		c.Writer.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 		c.Next()
 	}
 }
